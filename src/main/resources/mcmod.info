@@ -1,0 +1,16 @@
+[
+{
+  "modid": "randomencounters",
+  "name": "Random Encounters",
+  "description": "AI-driven storytelling and dynamic encounter system for RLCraft Dregora. Creates persistent narrative arcs, tracks player choices, and generates contextually aware encounters that respond to your journey through the wasteland.",
+  "version": "${version}",
+  "mcversion": "${mcversion}",
+  "url": "",
+  "updateUrl": "",
+  "authorList": ["torchlite.ai"],
+  "credits": "Powered by AI storytelling",
+  "logoFile": "",
+  "screenshots": [],
+  "dependencies": []
+}
+]

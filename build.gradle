@@ -1,0 +1,110 @@
+buildscript {
+    repositories {
+        jcenter()
+        maven { url = "http://files.minecraftforge.net/maven" }
+    }
+    dependencies {
+        classpath 'net.minecraftforge.gradle:ForgeGradle:2.3-SNAPSHOT'
+    }
+}
+
+apply plugin: 'net.minecraftforge.gradle.forge'
+
+version = "${mc_version}-${mod_version}"
+group = 'ai.torchlite'
+archivesBaseName = 'RandomEncounters'
+
+minecraft {
+    version = "${mc_version}-${forge_version}"
+    runDir = "run"
+    
+    // the mappings can be changed at any time, and must be in the following format.
+    // snapshot_YYYYMMDD   snapshot are built nightly.
+    // stable_#            stables are built at the discretion of the MCP team.
+    // Use non-default mappings at your own risk. they may not always work.
+    // simply re-run your setup task after changing the mappings to update your workspace.
+    mappings = "snapshot_20170624"
+    // makeObfSourceJar = false // an Srg named sources jar is made by default. uncomment this to disable
+
+	replace "@VERSION@", "${mod_version}"
+	replaceIn "${mod_reference}"
+}
+
+repositories {
+	// JEI
+	maven {
+		// location of the maven that hosts JEI files
+		name = "Progwml6 maven"
+		url = "http://dvs1.progwml6.com/files/maven"
+	}
+	maven {
+		// location of a maven mirror for JEI files, as a fallback
+		// Also TiCon
+		name = "ModMaven"
+		url = "modmaven.k-4u.nl"
+	}
+}
+
+dependencies {
+    // JEI
+	deobfCompile "mezz.jei:jei_1.12.2:4.11.+:api"
+	// at runtime, use the full JEI jar
+	runtime "mezz.jei:jei_1.12.2:4.11.+"
+
+	// Add any additional dependencies for random encounters mod here
+}
+
+processResources {
+    // this will ensure that this task is redone when the versions change.
+    inputs.property "version", project.version
+    inputs.property "mcversion", project.minecraft.version
+
+    // replace stuff in mcmod.info, nothing else
+    from(sourceSets.main.resources.srcDirs) {
+        include 'mcmod.info'
+                
+        // replace version and mcversion
+        expand 'version':project.version, 'mcversion':project.minecraft.version
+    }
+        
+    // copy everything else except the mcmod.info
+    from(sourceSets.main.resources.srcDirs) {
+        exclude 'mcmod.info'
+    }
+}
+
+// Copy mod JAR to local dev mods folder after build
+task copyToModsFolder(type: Copy, dependsOn: build) {
+    from file("${buildDir}/libs/${archivesBaseName}-${version}.jar")
+    into file("D:/curseforge/minecraft/Instances/RLCraft Dregora (Local Dev)/mods")
+
+    doLast {
+        println "Copied ${archivesBaseName}-${version}.jar to mods folder"
+    }
+}
+
+// Run copyToModsFolder automatically after build
+build.finalizedBy(copyToModsFolder)
+
+// Task to run AI generation test
+task testAI(type: JavaExec) {
+    description = 'Run standalone AI generation test (no Minecraft required)'
+    group = 'verification'
+
+    classpath = sourceSets.main.runtimeClasspath + sourceSets.test.runtimeClasspath
+    main = 'ai.torchlite.randomencounters.AIGenerationTest'
+    standardInput = System.in
+
+    doFirst {
+        println ""
+        println "========================================="
+        println "  Random Encounters AI Generation Test  "
+        println "========================================="
+        println ""
+    }
+}
+
+wrapper {
+    gradleVersion = '4.10.3'
+    distributionType = Wrapper.DistributionType.BIN
+}
