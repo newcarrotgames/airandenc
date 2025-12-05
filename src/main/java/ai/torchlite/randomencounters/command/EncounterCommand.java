@@ -30,7 +30,7 @@ public class EncounterCommand extends CommandBase {
 
     @Override
     public String getUsage(ICommandSender sender) {
-        return "/encounter <story|threads|history|generate|services|reload>";
+        return "/encounter <story|threads|history|generate|clear|services|reload>";
     }
 
     @Override
@@ -67,6 +67,9 @@ public class EncounterCommand extends CommandBase {
             case "generate":
                 generateEncounter(player);
                 break;
+            case "clear":
+                clearEncounter(player);
+                break;
             case "services":
                 showServices(player);
                 break;
@@ -89,6 +92,8 @@ public class EncounterCommand extends CommandBase {
             TextFormatting.WHITE + " - View encounter history"));
         player.sendMessage(new TextComponentString(TextFormatting.YELLOW + "/encounter generate" +
             TextFormatting.WHITE + " - Generate an AI encounter"));
+        player.sendMessage(new TextComponentString(TextFormatting.YELLOW + "/encounter clear" +
+            TextFormatting.WHITE + " - Clear active encounter"));
         player.sendMessage(new TextComponentString(TextFormatting.YELLOW + "/encounter services" +
             TextFormatting.WHITE + " - List available AI services"));
         player.sendMessage(new TextComponentString(TextFormatting.YELLOW + "/encounter reload" +
@@ -198,6 +203,21 @@ public class EncounterCommand extends CommandBase {
                 TextFormatting.WHITE + encounter.getBriefDescription()));
             player.sendMessage(new TextComponentString(
                 TextFormatting.GRAY + "  Outcome: " + color + encounter.getOutcome()));
+        }
+    }
+
+    private void clearEncounter(EntityPlayer player) {
+        java.util.UUID playerUUID = player.getUniqueID();
+        boolean hadEncounter = RandomEncounters.getEncounterExecutor()
+            .hasActiveEncounter(playerUUID);
+
+        if (hadEncounter) {
+            RandomEncounters.getEncounterExecutor().completeEncounter(playerUUID, "abandoned");
+            player.sendMessage(new TextComponentString(TextFormatting.YELLOW +
+                "Active encounter cleared. You can now generate a new encounter."));
+        } else {
+            player.sendMessage(new TextComponentString(TextFormatting.YELLOW +
+                "You don't have an active encounter."));
         }
     }
 
