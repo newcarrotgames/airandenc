@@ -58,6 +58,29 @@ public class EncounterOutcomeTracker {
     }
 
     /**
+     * Handle player death to complete encounters with defeat outcome
+     */
+    @SubscribeEvent
+    public void onPlayerDeath(LivingDeathEvent event) {
+        if (event.getEntity() instanceof EntityPlayer) {
+            EntityPlayer player = (EntityPlayer) event.getEntity();
+            UUID playerUUID = player.getUniqueID();
+
+            if (executor.hasActiveEncounter(playerUUID)) {
+                // Player died during encounter - mark as defeat
+                EncounterExecutor.ActiveEncounter encounter = executor.getActiveEncounter(playerUUID);
+                if (encounter != null) {
+                    completeEncounterWithOutcome(encounter, playerUUID, "defeat");
+                    RandomEncounters.LOGGER.info("Player died during encounter: " + player.getName());
+                } else {
+                    // Fallback: just clear it
+                    executor.completeEncounter(playerUUID, "defeat");
+                }
+            }
+        }
+    }
+
+    /**
      * Check if an encounter should be completed based on entity deaths
      */
     private void checkEncounterCompletion(EncounterExecutor.ActiveEncounter encounter, UUID playerUUID) {
@@ -165,11 +188,7 @@ public class EncounterOutcomeTracker {
      * Get all player UUIDs with active encounters
      */
     private Set<UUID> getAllActiveEncounterPlayers() {
-        // This would ideally come from the executor, but we'll iterate through potential players
-        Set<UUID> players = new HashSet<>();
-        // Implementation note: In a real scenario, we'd need a way to get all active player UUIDs
-        // For now, this serves as a placeholder
-        return players;
+        return executor.getActiveEncounterPlayers();
     }
 
     /**

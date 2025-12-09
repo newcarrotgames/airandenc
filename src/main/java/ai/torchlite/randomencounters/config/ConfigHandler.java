@@ -247,14 +247,14 @@ public class ConfigHandler {
                 "logRequests",
                 "debug",
                 false,
-                "Log AI API requests (may contain API keys in logs!)"
+                "Log full AI prompts and request parameters (API keys are never logged)"
             );
 
             logAIResponses = config.getBoolean(
                 "logResponses",
                 "debug",
                 false,
-                "Log AI API responses"
+                "Log full AI responses including complete narratives and JSON (verbose output)"
             );
 
         } catch (Exception e) {

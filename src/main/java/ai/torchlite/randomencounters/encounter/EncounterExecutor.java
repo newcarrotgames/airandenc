@@ -184,6 +184,13 @@ public class EncounterExecutor {
     }
 
     /**
+     * Get all player UUIDs with active encounters
+     */
+    public java.util.Set<UUID> getActiveEncounterPlayers() {
+        return new java.util.HashSet<>(activeEncounters.keySet());
+    }
+
+    /**
      * Clean up stale encounters (older than 30 minutes)
      */
     public void cleanupStaleEncounters() {

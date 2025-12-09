@@ -231,6 +231,9 @@ public class EncounterCommand extends CommandBase {
         player.sendMessage(new TextComponentString(TextFormatting.YELLOW +
             "Generating encounter..."));
 
+        // Get the server instance
+        final net.minecraft.server.MinecraftServer server = player.getServer();
+
         // Run async to avoid blocking the game thread
         new Thread(() -> {
             try {
@@ -238,17 +241,26 @@ public class EncounterCommand extends CommandBase {
                     aiEngine.generateEncounter(player, player.world);
 
                 if (response != null) {
-                    // Execute the encounter (spawn entities, display narrative)
-                    boolean success = RandomEncounters.getEncounterExecutor()
-                        .executeEncounter(response, player, player.world);
+                    // Schedule encounter execution on the main server thread
+                    // (Entity spawning must happen on the main thread to avoid ConcurrentModificationException)
+                    server.addScheduledTask(() -> {
+                        try {
+                            boolean success = RandomEncounters.getEncounterExecutor()
+                                .executeEncounter(response, player, player.world);
 
-                    if (success) {
-                        player.sendMessage(new TextComponentString(TextFormatting.GREEN +
-                            "Encounter spawned successfully!"));
-                    } else {
-                        player.sendMessage(new TextComponentString(TextFormatting.YELLOW +
-                            "Encounter generated but spawning failed"));
-                    }
+                            if (success) {
+                                player.sendMessage(new TextComponentString(TextFormatting.GREEN +
+                                    "Encounter spawned successfully!"));
+                            } else {
+                                player.sendMessage(new TextComponentString(TextFormatting.YELLOW +
+                                    "Encounter generated but spawning failed"));
+                            }
+                        } catch (Exception e) {
+                            RandomEncounters.LOGGER.error("Failed to execute encounter", e);
+                            player.sendMessage(new TextComponentString(TextFormatting.RED +
+                                "Failed to spawn encounter: " + e.getMessage()));
+                        }
+                    });
                 } else {
                     player.sendMessage(new TextComponentString(TextFormatting.RED +
                         "Failed to generate encounter. Check server logs"));

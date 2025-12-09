@@ -27,6 +27,7 @@ public class ModularPromptBuilder {
         sections.add(new BiomeContextSection());
         sections.add(new PlayerContextSection());
         sections.add(new StoryHistorySection());
+        sections.add(new FactionReputationSection());
         sections.add(new DifficultySection());
         sections.add(new TaskInstructionsSection());
     }
@@ -97,13 +98,13 @@ public class ModularPromptBuilder {
         prompt.append("  \"narrative_text\": \"Full narrative for the player\",\n");
         prompt.append("  \"entities\": [\n");
         prompt.append("    {\n");
-        prompt.append("      \"entity_type\": \"zombie|skeleton|spider|creeper|enderman|witch|villager|etc\",\n");
-        prompt.append("      \"name\": \"Custom name\",\n");
-        prompt.append("      \"count\": 1,\n");
+        prompt.append("      \"entity_type\": \"zombie|skeleton|spider|creeper|villager|wolf|witch|enderman\",\n");
+        prompt.append("      \"name\": \"Custom name like 'Wasteland Raider' or 'Trader Marcus'\",\n");
+        prompt.append("      \"count\": 2,\n");
         prompt.append("      \"hostile\": true,\n");
-        prompt.append("      \"health_modifier\": 1.0,\n");
+        prompt.append("      \"health_modifier\": 1.5,\n");
         prompt.append("      \"damage_modifier\": 1.0,\n");
-        prompt.append("      \"equipment\": [\"item1\", \"item2\"]\n");
+        prompt.append("      \"equipment\": [\"iron_sword\", \"iron_helmet\", \"leather_chestplate\"]\n");
         prompt.append("    }\n");
         prompt.append("  ],\n");
         prompt.append("  \"dialogue\": [\n");
@@ -118,16 +119,36 @@ public class ModularPromptBuilder {
 
         prompt.append("### story_updates field:\n");
         prompt.append("{\n");
-        prompt.append("  \"encounter_summary\": \"One-line summary\",\n");
-        prompt.append("  \"thread_updates\": [],\n");
-        prompt.append("  \"new_threads\": [],\n");
-        prompt.append("  \"key_choices\": []\n");
+        prompt.append("  \"encounter_summary\": \"One-line summary of what happened\",\n");
+        prompt.append("  \"thread_updates\": [\n");
+        prompt.append("    {\"thread_id\": \"existing_thread_id\", \"progress_change\": 1, \"narrative_addition\": \"What happened\"}\n");
+        prompt.append("  ],\n");
+        prompt.append("  \"new_threads\": [\n");
+        prompt.append("    {\n");
+        prompt.append("      \"thread_id\": \"unique_id\",\n");
+        prompt.append("      \"title\": \"Thread Title\",\n");
+        prompt.append("      \"description\": \"Brief description\",\n");
+        prompt.append("      \"priority\": \"LOW|MEDIUM|HIGH|URGENT\",\n");
+        prompt.append("      \"current_objective\": \"What the player should do next\"\n");
+        prompt.append("    }\n");
+        prompt.append("  ],\n");
+        prompt.append("  \"key_choices\": [\"Choice 1\", \"Choice 2\", \"Choice 3\"]\n");
         prompt.append("}\n\n");
 
-        prompt.append("CRITICAL:\n");
+        prompt.append("CRITICAL RULES:\n");
         prompt.append("- encounter_json must be a STRING with escaped quotes (\\\")\n");
-        prompt.append("- Use only valid Minecraft entity types (zombie, skeleton, spider, creeper, villager, etc.)\n");
-        prompt.append("- Return ONLY the JSON, nothing else\n");
+        prompt.append("- EVERY encounter MUST have at least 1 entity in the entities array (cannot be empty!)\n");
+        prompt.append("- Use only valid Minecraft entity types: zombie, skeleton, spider, creeper, villager, wolf, witch, enderman, blaze, ghast, etc.\n");
+        prompt.append("- BE CREATIVE with entity names! Examples: \"Corrupted Wanderer\", \"Pre-war Sentinel\", \"Blight Prophet\", \"Wasteland Caravan Master\"\n");
+        prompt.append("- MIX entity types creatively: A villager (trader) + wolves (guards), skeleton (sniper) + zombies (melee), witch (leader) + spiders (minions)\n");
+        prompt.append("- VARY equipment: Not every raider needs full iron armor. Mix leather, chainmail, gold, iron for variety\n");
+        prompt.append("- USE health/damage modifiers to create bosses: health_modifier: 2.5 for a tough leader, 0.8 for a weakling\n");
+        prompt.append("- new_threads must be an array of OBJECTS, not strings\n");
+        prompt.append("- Each new_threads entry must have: thread_id, title, description, priority, current_objective\n");
+        prompt.append("- thread_updates must be an array of OBJECTS with: thread_id, progress_change, narrative_addition\n");
+        prompt.append("- key_choices must be an array of strings\n");
+        prompt.append("- Return ONLY the raw JSON, NO markdown code fences (no ```json or ```)\n");
+        prompt.append("- The response must start with { and end with }\n");
 
         return prompt.toString();
     }

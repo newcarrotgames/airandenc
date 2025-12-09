@@ -74,11 +74,18 @@ public class BiomeContextSection implements PromptSection {
         if (info != null) {
             section.append("**Environment:** ").append(info.description).append("\n\n");
 
-            section.append("**Local Factions:**\n");
+            section.append("**Local Factions (Active in this biome):**\n");
             for (String faction : info.factions) {
-                section.append("- ").append(faction).append("\n");
+                section.append("- ").append(faction).append(" - Can patrol, trade, or hunt here\n");
             }
             section.append("\n");
+
+            section.append("**Typical Encounters:**\n");
+            section.append("- Faction patrols or scouts\n");
+            section.append("- Lone travelers or traders\n");
+            section.append("- Hunting parties\n");
+            section.append("- Refugee groups\n");
+            section.append("- Hostile raiders or bandits\n\n");
 
             section.append("**Environmental Hazards:**\n");
             for (String hazard : info.hazards) {

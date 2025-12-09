@@ -1,9 +1,11 @@
 package ai.torchlite.randomencounters.ai;
 
 import ai.torchlite.randomencounters.RandomEncounters;
+import ai.torchlite.randomencounters.ai.models.ChatRequestBuilder;
 import ai.torchlite.randomencounters.config.ConfigHandler;
 import ai.torchlite.randomencounters.story.StorytellingResponse;
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
@@ -37,6 +39,12 @@ public class OpenAIStorytellingService implements IAIStorytellingService {
 
         // Step 1: Generate creative narrative story
         RandomEncounters.LOGGER.info("Step 1: Generating narrative with " + creativeModel);
+
+        // Log full prompt if verbose logging enabled
+        if (ConfigHandler.logAIRequests) {
+            RandomEncounters.LOGGER.info("Full Story Generation Prompt:\n" + prompt);
+        }
+
         String narrative = generateNarrative(prompt, creativeModel, apiKey);
         RandomEncounters.LOGGER.info("Generated narrative: " + narrative.substring(0, Math.min(200, narrative.length())) + "...");
 
@@ -44,6 +52,11 @@ public class OpenAIStorytellingService implements IAIStorytellingService {
         RandomEncounters.LOGGER.info("Step 2: Converting to JSON with " + conversionModel);
         NarrativePromptBuilder promptBuilder = new NarrativePromptBuilder();
         String conversionPrompt = promptBuilder.buildConversionPrompt(narrative);
+
+        // Log full conversion prompt if verbose logging enabled
+        if (ConfigHandler.logAIRequests) {
+            RandomEncounters.LOGGER.info("Full Conversion Prompt:\n" + conversionPrompt);
+        }
 
         return convertNarrativeToJson(conversionPrompt, conversionModel, apiKey);
     }
@@ -53,47 +66,41 @@ public class OpenAIStorytellingService implements IAIStorytellingService {
      */
     private String generateNarrative(String prompt, String model, String apiKey) throws Exception {
 
-        // Build request JSON
-        JsonObject request = new JsonObject();
-        request.addProperty("model", model);
+        // Build request using model-aware builder
+        ChatRequestBuilder builder = new ChatRequestBuilder(model)
+            .setCreativeTask(true)
+            .setMaxTokens(2000)
+            .addSystemMessage(
+                "You are an expert storyteller for RLCraft Dregora, a post-apocalyptic Minecraft modpack. " +
+                "Generate immersive, atmospheric encounter narratives with rich details, tension, and meaningful choices.")
+            .addUserMessage(prompt);
 
-        // o1 models don't support temperature, gpt-5 models only support default temperature (1.0)
-        // Other models can use custom temperature
-        boolean isO1Model = model.startsWith("o1");
-        boolean isGpt5Model = model.startsWith("gpt-5");
-
-        if (!isO1Model && !isGpt5Model) {
-            request.addProperty("temperature", 0.9);  // Higher temperature for creativity
-        }
-
-        // Newer models (gpt-4o, gpt-5, o1, etc.) use max_completion_tokens
-        // Older models (gpt-4, gpt-3.5-turbo) use max_tokens
-        if (model.startsWith("gpt-4o") || model.startsWith("gpt-5") || model.startsWith("o1")) {
-            request.addProperty("max_completion_tokens", 2000);
-        } else {
-            request.addProperty("max_tokens", 2000);
-        }
-
-        // Add messages
-        com.google.gson.JsonArray messages = new com.google.gson.JsonArray();
-
-        JsonObject systemMessage = new JsonObject();
-        systemMessage.addProperty("role", "system");
-        systemMessage.addProperty("content",
-            "You are an expert storyteller for RLCraft Dregora, a post-apocalyptic Minecraft modpack. " +
-            "Generate immersive, atmospheric encounter narratives with rich details, tension, and meaningful choices.");
-        messages.add(systemMessage);
-
-        JsonObject userMessage = new JsonObject();
-        userMessage.addProperty("role", "user");
-        userMessage.addProperty("content", prompt);
-        messages.add(userMessage);
-
-        request.add("messages", messages);
+        JsonObject request = builder.build();
+        JsonArray messages = builder.getMessages();
 
         // Make API call
         String requestBody = gson.toJson(request);
-        RandomEncounters.LOGGER.debug("OpenAI Request: " + requestBody);
+
+        // Log request metadata (always safe)
+        RandomEncounters.LOGGER.info("OpenAI API Request - Model: " + model +
+            ", Messages: " + messages.size() +
+            ", Prompt length: ~" + prompt.length() + " chars");
+
+        // Verbose logging (message content only - API key is NEVER logged)
+        if (ConfigHandler.logAIRequests) {
+            RandomEncounters.LOGGER.info("Request Parameters: temperature=" +
+                (request.has("temperature") ? request.get("temperature").getAsString() : "default") +
+                ", max_tokens=" + (request.has("max_completion_tokens") ?
+                    request.get("max_completion_tokens").getAsString() :
+                    request.get("max_tokens").getAsString()));
+            RandomEncounters.LOGGER.info("Request Messages:");
+            for (int i = 0; i < messages.size(); i++) {
+                JsonObject msg = messages.get(i).getAsJsonObject();
+                String role = msg.get("role").getAsString();
+                String content = msg.get("content").getAsString();
+                RandomEncounters.LOGGER.info("  [" + role + "]: " + content);
+            }
+        }
 
         HttpURLConnection connection = (HttpURLConnection) new URL(API_URL).openConnection();
         connection.setRequestMethod("POST");
@@ -123,8 +130,13 @@ public class OpenAIStorytellingService implements IAIStorytellingService {
         }
 
         String responseBody = response.toString();
-        RandomEncounters.LOGGER.debug("OpenAI Response Code: " + responseCode);
-        RandomEncounters.LOGGER.debug("OpenAI Response Body: " + responseBody);
+        RandomEncounters.LOGGER.info("OpenAI API Response - Code: " + responseCode +
+            ", Body length: ~" + responseBody.length() + " chars");
+
+        // Verbose logging (full response body - only if explicitly enabled)
+        if (ConfigHandler.logAIResponses) {
+            RandomEncounters.LOGGER.info("OpenAI Full Response Body: " + responseBody);
+        }
 
         if (responseCode != 200) {
             // Try to parse error details
@@ -162,7 +174,9 @@ public class OpenAIStorytellingService implements IAIStorytellingService {
             .get("message").getAsJsonObject()
             .get("content").getAsString();
 
-        RandomEncounters.LOGGER.debug("OpenAI Generated Content: " + content);
+        RandomEncounters.LOGGER.info("OpenAI Generated Narrative - Length: " + content.length() + " chars");
+        RandomEncounters.LOGGER.info("Narrative preview: " +
+            content.substring(0, Math.min(200, content.length())).replace("\n", " ") + "...");
 
         // Return the narrative text (Step 1 complete)
         return content;
@@ -172,51 +186,41 @@ public class OpenAIStorytellingService implements IAIStorytellingService {
      * Convert narrative story to JSON format (Step 2)
      */
     private StorytellingResponse convertNarrativeToJson(String conversionPrompt, String model, String apiKey) throws Exception {
-        // Build request JSON
-        JsonObject request = new JsonObject();
-        request.addProperty("model", model);
-
-        // Newer models (gpt-4o, gpt-5, o1, etc.) use max_completion_tokens
-        // Older models (gpt-4, gpt-3.5-turbo) use max_tokens
-        if (model.startsWith("gpt-4o") || model.startsWith("gpt-5") || model.startsWith("o1")) {
-            request.addProperty("max_completion_tokens", 2000);
-        } else {
-            request.addProperty("max_tokens", 2000);
-        }
-
-        // o1 models don't support temperature or system messages
-        // gpt-5 models only support default temperature (1.0)
-        // Other models can use custom temperature
-        boolean isO1Model = model.startsWith("o1");
-        boolean isGpt5Model = model.startsWith("gpt-5");
-
-        if (!isO1Model && !isGpt5Model) {
-            request.addProperty("temperature", 0.2);  // Low temperature for structured output
-        }
-
-        // Add messages
-        com.google.gson.JsonArray messages = new com.google.gson.JsonArray();
-
-        if (!isO1Model) {
-            // Regular models can use system messages
-            JsonObject systemMessage = new JsonObject();
-            systemMessage.addProperty("role", "system");
-            systemMessage.addProperty("content",
+        // Build request using model-aware builder
+        ChatRequestBuilder builder = new ChatRequestBuilder(model)
+            .setCreativeTask(false)  // Low temperature for structured output
+            .setMaxTokens(2000)
+            .addSystemMessage(
                 "You are a precise data converter. Convert narrative text into structured JSON. " +
-                "Return ONLY valid JSON with no additional text or markdown.");
-            messages.add(systemMessage);
-        }
+                "Return ONLY valid JSON with no additional text or markdown.")
+            .addUserMessage(conversionPrompt);
 
-        JsonObject userMessage = new JsonObject();
-        userMessage.addProperty("role", "user");
-        userMessage.addProperty("content", conversionPrompt);
-        messages.add(userMessage);
-
-        request.add("messages", messages);
+        JsonObject request = builder.build();
+        JsonArray messages = builder.getMessages();
 
         // Make API call
         String requestBody = gson.toJson(request);
-        RandomEncounters.LOGGER.debug("OpenAI Conversion Request: " + requestBody);
+
+        // Log request metadata (always safe)
+        RandomEncounters.LOGGER.info("OpenAI Conversion Request - Model: " + model +
+            ", Messages: " + messages.size() +
+            ", Conversion prompt length: ~" + conversionPrompt.length() + " chars");
+
+        // Verbose logging (message content only - API key is NEVER logged)
+        if (ConfigHandler.logAIRequests) {
+            RandomEncounters.LOGGER.info("Request Parameters: temperature=" +
+                (request.has("temperature") ? request.get("temperature").getAsString() : "default") +
+                ", max_tokens=" + (request.has("max_completion_tokens") ?
+                    request.get("max_completion_tokens").getAsString() :
+                    request.get("max_tokens").getAsString()));
+            RandomEncounters.LOGGER.info("Conversion Request Messages:");
+            for (int i = 0; i < messages.size(); i++) {
+                JsonObject msg = messages.get(i).getAsJsonObject();
+                String role = msg.get("role").getAsString();
+                String content = msg.get("content").getAsString();
+                RandomEncounters.LOGGER.info("  [" + role + "]: " + content);
+            }
+        }
 
         HttpURLConnection connection = (HttpURLConnection) new URL(API_URL).openConnection();
         connection.setRequestMethod("POST");
@@ -246,8 +250,13 @@ public class OpenAIStorytellingService implements IAIStorytellingService {
         }
 
         String responseBody = responseBuilder.toString();
-        RandomEncounters.LOGGER.debug("OpenAI Conversion Response Code: " + responseCode);
-        RandomEncounters.LOGGER.debug("OpenAI Conversion Response Body: " + responseBody);
+        RandomEncounters.LOGGER.info("OpenAI Conversion Response - Code: " + responseCode +
+            ", Body length: ~" + responseBody.length() + " chars");
+
+        // Verbose logging (full response body - only if explicitly enabled)
+        if (ConfigHandler.logAIResponses) {
+            RandomEncounters.LOGGER.info("OpenAI Full Conversion Response Body: " + responseBody);
+        }
 
         if (responseCode != 200) {
             // Try to parse error details
@@ -285,11 +294,27 @@ public class OpenAIStorytellingService implements IAIStorytellingService {
             .get("message").getAsJsonObject()
             .get("content").getAsString();
 
-        RandomEncounters.LOGGER.debug("OpenAI Converted JSON: " + content);
+        RandomEncounters.LOGGER.info("OpenAI Converted JSON - Length: " + content.length() + " chars");
+
+        // Verbose logging (full JSON - only if explicitly enabled)
+        if (ConfigHandler.logAIResponses) {
+            RandomEncounters.LOGGER.info("Full Converted JSON:\n" + content);
+        }
+
+        // Strip markdown code fences if present (AI sometimes adds ```json ... ```)
+        String cleanedContent = content.trim();
+        if (cleanedContent.startsWith("```json")) {
+            cleanedContent = cleanedContent.substring("```json".length()).trim();
+        } else if (cleanedContent.startsWith("```")) {
+            cleanedContent = cleanedContent.substring("```".length()).trim();
+        }
+        if (cleanedContent.endsWith("```")) {
+            cleanedContent = cleanedContent.substring(0, cleanedContent.length() - 3).trim();
+        }
 
         // Parse the AI's JSON response into StorytellingResponse
         try {
-            StorytellingResponse result = gson.fromJson(content, StorytellingResponse.class);
+            StorytellingResponse result = gson.fromJson(cleanedContent, StorytellingResponse.class);
 
             // Validate that we got the required fields
             if (result == null) {
@@ -302,7 +327,9 @@ public class OpenAIStorytellingService implements IAIStorytellingService {
 
             return result;
         } catch (Exception e) {
-            RandomEncounters.LOGGER.error("Failed to parse AI content as StorytellingResponse: " + content);
+            RandomEncounters.LOGGER.error("Failed to parse AI content as StorytellingResponse");
+            RandomEncounters.LOGGER.error("Original content: " + content);
+            RandomEncounters.LOGGER.error("Cleaned content: " + cleanedContent);
             RandomEncounters.LOGGER.error("Parse error: " + e.getMessage());
             throw new Exception("AI did not return valid encounter JSON: " + e.getMessage());
         }

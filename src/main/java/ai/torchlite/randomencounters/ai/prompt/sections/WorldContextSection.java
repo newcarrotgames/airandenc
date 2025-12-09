@@ -23,12 +23,14 @@ public class WorldContextSection implements PromptSection {
         section.append("It twists nature, mutates creatures, and drives people to madness. ");
         section.append("The exact origin remains unknown, though many seek answers.\n\n");
 
-        section.append("**Civilization:** Scattered survivors huddle in camps and fortified settlements. ");
-        section.append("Factions vie for resources, knowledge, and control. Trust is rare; survival is paramount.\n\n");
+        section.append("**Survivors & Factions:** Scattered groups fight for survival in the wasteland. ");
+        section.append("Factions control territory through patrols, scouts, and armed groups. ");
+        section.append("Trust is earned through actions; reputation determines how NPCs treat you. ");
+        section.append("Faction members travel, trade, hunt, and defend their interests.\n\n");
 
         section.append("**Technology:** Pre-Blight technology is highly valued. Ancient weapons, ");
-        section.append("medical supplies, and power sources are worth killing for. ");
-        section.append("New innovations focus on surviving the Blight.\n\n");
+        section.append("medical supplies, and power sources are carried by traders and sought by scavengers. ");
+        section.append("Faction members may be armed with salvaged gear.\n\n");
 
         if (ConfigHandler.emphasizeBlight) {
             section.append("**Blight Influence:** The corruption is ever-present. ");
