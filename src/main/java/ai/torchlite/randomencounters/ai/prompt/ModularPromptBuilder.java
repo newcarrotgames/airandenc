@@ -2,6 +2,7 @@ package ai.torchlite.randomencounters.ai.prompt;
 
 import ai.torchlite.randomencounters.ai.StorytellingRequest;
 import ai.torchlite.randomencounters.ai.prompt.sections.*;
+import ai.torchlite.randomencounters.entity.EntityRegistry;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -138,7 +139,11 @@ public class ModularPromptBuilder {
         prompt.append("CRITICAL RULES:\n");
         prompt.append("- encounter_json must be a STRING with escaped quotes (\\\")\n");
         prompt.append("- EVERY encounter MUST have at least 1 entity in the entities array (cannot be empty!)\n");
-        prompt.append("- Use only valid Minecraft entity types: zombie, skeleton, spider, creeper, villager, wolf, witch, enderman, blaze, ghast, etc.\n");
+
+        // Include dynamic entity list
+        EntityRegistry registry = EntityRegistry.getInstance();
+        prompt.append("- " + registry.buildCompactEntityList() + "\n");
+
         prompt.append("- BE CREATIVE with entity names! Examples: \"Corrupted Wanderer\", \"Pre-war Sentinel\", \"Blight Prophet\", \"Wasteland Caravan Master\"\n");
         prompt.append("- MIX entity types creatively: A villager (trader) + wolves (guards), skeleton (sniper) + zombies (melee), witch (leader) + spiders (minions)\n");
         prompt.append("- VARY equipment: Not every raider needs full iron armor. Mix leather, chainmail, gold, iron for variety\n");

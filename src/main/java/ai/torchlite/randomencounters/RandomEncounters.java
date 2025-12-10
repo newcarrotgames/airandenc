@@ -4,6 +4,7 @@ import ai.torchlite.randomencounters.command.EncounterCommand;
 import ai.torchlite.randomencounters.config.ConfigHandler;
 import ai.torchlite.randomencounters.encounter.EncounterExecutor;
 import ai.torchlite.randomencounters.encounter.EncounterOutcomeTracker;
+import ai.torchlite.randomencounters.entity.EntityRegistry;
 import ai.torchlite.randomencounters.proxy.CommonProxy;
 import ai.torchlite.randomencounters.story.StoryStateManager;
 import net.minecraftforge.common.MinecraftForge;
@@ -66,6 +67,10 @@ public class RandomEncounters {
     public void init(FMLInitializationEvent event) {
         LOGGER.info("Random Encounters - Initialization");
         proxy.init();
+
+        // Discover available entities
+        EntityRegistry.getInstance();
+        LOGGER.info("Entity registry initialized");
 
         // Initialize encounter system
         encounterExecutor = new EncounterExecutor();

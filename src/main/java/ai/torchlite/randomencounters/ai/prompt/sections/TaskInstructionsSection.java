@@ -2,6 +2,7 @@ package ai.torchlite.randomencounters.ai.prompt.sections;
 
 import ai.torchlite.randomencounters.ai.StorytellingRequest;
 import ai.torchlite.randomencounters.ai.prompt.PromptSection;
+import ai.torchlite.randomencounters.entity.EntityRegistry;
 
 /**
  * Provides the core task instructions for the AI
@@ -30,12 +31,20 @@ public class TaskInstructionsSection implements PromptSection {
 
         section.append("**REQUIREMENTS:**\n\n");
 
-        section.append("1. **SPAWN ENTITIES** - Every encounter MUST include at least 1-3 spawnable entities\n");
-        section.append("   - Use Minecraft entities: zombie, skeleton, spider, creeper, enderman, witch, villager, wolf, etc.\n");
-        section.append("   - Hostile factions spawn hostile mobs (zombies, skeletons, spiders)\n");
-        section.append("   - Friendly factions spawn NPCs (villagers, wolves as guards)\n");
+        section.append("1. **SPAWN ENTITIES** - Every encounter MUST include at least 1-3 spawnable entities\n\n");
+
+        // Include dynamic entity list from registry
+        EntityRegistry registry = EntityRegistry.getInstance();
+        section.append(registry.buildEntityListForPrompt(true, 20));
+        section.append("\n");
+
+        section.append("**Entity Usage Guidelines:**\n");
+        section.append("   - Hostile factions spawn hostile mobs (zombies, skeletons, spiders, modded creatures)\n");
+        section.append("   - Friendly factions spawn NPCs (villagers, wolves as guards, iron golems)\n");
         section.append("   - Traders can be villagers with custom names\n");
-        section.append("   - Scouts/patrols are skeletons or zombies with custom names and equipment\n\n");
+        section.append("   - Scouts/patrols are skeletons or zombies with custom names and equipment\n");
+        section.append("   - Use modded entities for unique encounters (dragons, elementals, parasites, etc.)\n");
+        section.append("   - Mix vanilla and modded entities for variety\n\n");
 
         section.append("2. **GIVE THEM EQUIPMENT** - NPCs should have appropriate gear\n");
         section.append("   - Weapons: iron_sword, bow, crossbow, diamond_sword\n");

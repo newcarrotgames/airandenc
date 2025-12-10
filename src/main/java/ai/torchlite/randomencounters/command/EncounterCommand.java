@@ -30,7 +30,7 @@ public class EncounterCommand extends CommandBase {
 
     @Override
     public String getUsage(ICommandSender sender) {
-        return "/encounter <story|threads|history|generate|clear|services|reload>";
+        return "/encounter <story|threads|history|generate|clear|services|reload|reputation|context>";
     }
 
     @Override
@@ -76,6 +76,14 @@ public class EncounterCommand extends CommandBase {
             case "reload":
                 reloadConfig(player);
                 break;
+            case "reputation":
+            case "rep":
+                showReputation(player);
+                break;
+            case "context":
+            case "ctx":
+                showContext(player);
+                break;
             default:
                 sendHelp(player);
                 break;
@@ -90,6 +98,10 @@ public class EncounterCommand extends CommandBase {
             TextFormatting.WHITE + " - List active story threads"));
         player.sendMessage(new TextComponentString(TextFormatting.YELLOW + "/encounter history [count]" +
             TextFormatting.WHITE + " - View encounter history"));
+        player.sendMessage(new TextComponentString(TextFormatting.YELLOW + "/encounter reputation" +
+            TextFormatting.WHITE + " - View faction reputations"));
+        player.sendMessage(new TextComponentString(TextFormatting.YELLOW + "/encounter context" +
+            TextFormatting.WHITE + " - View AI context (biome, faction, etc.)"));
         player.sendMessage(new TextComponentString(TextFormatting.YELLOW + "/encounter generate" +
             TextFormatting.WHITE + " - Generate an AI encounter"));
         player.sendMessage(new TextComponentString(TextFormatting.YELLOW + "/encounter clear" +
@@ -355,6 +367,148 @@ public class EncounterCommand extends CommandBase {
         }
     }
 
+    /**
+     * Show faction reputations
+     */
+    private void showReputation(EntityPlayer player) {
+        StoryStateManager manager = StoryStateManager.getInstance();
+        if (manager == null) {
+            player.sendMessage(new TextComponentString(TextFormatting.RED +
+                "Story system not initialized"));
+            return;
+        }
+
+        PlayerStoryState state = manager.getOrCreateState(player);
+
+        player.sendMessage(new TextComponentString(TextFormatting.GOLD +
+            "=== Faction Reputations ==="));
+
+        if (state.getFactionReputation().isEmpty()) {
+            player.sendMessage(new TextComponentString(TextFormatting.GRAY +
+                "You haven't encountered any factions yet."));
+            return;
+        }
+
+        // Sort factions by reputation (highest first)
+        state.getFactionReputation().entrySet().stream()
+            .sorted((a, b) -> Integer.compare(b.getValue(), a.getValue()))
+            .forEach(entry -> {
+                String faction = entry.getKey();
+                int rep = entry.getValue();
+                TextFormatting color = getReputationColor(rep);
+                String standing = getReputationText(rep);
+
+                player.sendMessage(new TextComponentString(
+                    color + "  " + faction + ": " +
+                    TextFormatting.WHITE + rep + " " +
+                    color + "(" + standing + ")"));
+            });
+    }
+
+    /**
+     * Show AI context that would be used for encounter generation
+     */
+    private void showContext(EntityPlayer player) {
+        player.sendMessage(new TextComponentString(TextFormatting.GOLD +
+            "=== AI Context Preview ==="));
+        player.sendMessage(new TextComponentString(TextFormatting.GRAY +
+            "This is the context that would be sent to the AI:"));
+        player.sendMessage(new TextComponentString(""));
+
+        try {
+            // Build the context using the same engine as encounter generation
+            ai.torchlite.randomencounters.context.ContextEnrichmentEngine contextEngine =
+                new ai.torchlite.randomencounters.context.ContextEnrichmentEngine();
+            ai.torchlite.randomencounters.ai.StorytellingRequest request =
+                contextEngine.buildStorytellingRequest(player, player.world);
+
+            // Display location context
+            player.sendMessage(new TextComponentString(TextFormatting.YELLOW + "Location:"));
+            player.sendMessage(new TextComponentString(TextFormatting.WHITE + "  Biome: " +
+                TextFormatting.AQUA + request.getBiome()));
+            player.sendMessage(new TextComponentString(TextFormatting.WHITE + "  Dimension: " +
+                TextFormatting.AQUA + request.getDimension()));
+            player.sendMessage(new TextComponentString(TextFormatting.WHITE + "  Position: " +
+                TextFormatting.AQUA + request.getPosX() + ", " + request.getPosY() + ", " + request.getPosZ()));
+            player.sendMessage(new TextComponentString(TextFormatting.WHITE + "  Time: " +
+                TextFormatting.AQUA + request.getTimeOfDay()));
+            player.sendMessage(new TextComponentString(TextFormatting.WHITE + "  Weather: " +
+                TextFormatting.AQUA + request.getWeather()));
+
+            if (request.getCurrentLocation() != null && !request.getCurrentLocation().isEmpty()) {
+                player.sendMessage(new TextComponentString(TextFormatting.WHITE + "  Location: " +
+                    TextFormatting.AQUA + request.getCurrentLocation()));
+            }
+
+            player.sendMessage(new TextComponentString(""));
+
+            // Display player context
+            player.sendMessage(new TextComponentString(TextFormatting.YELLOW + "Player:"));
+            player.sendMessage(new TextComponentString(TextFormatting.WHITE + "  Level: " +
+                TextFormatting.AQUA + request.getPlayerLevel()));
+            player.sendMessage(new TextComponentString(TextFormatting.WHITE + "  Health: " +
+                TextFormatting.AQUA + String.format("%.1f/%.1f",
+                    request.getPlayerHealth(), request.getPlayerMaxHealth())));
+            player.sendMessage(new TextComponentString(TextFormatting.WHITE + "  Difficulty Rating: " +
+                TextFormatting.AQUA + String.format("%.2f", request.getLocalDifficultyRating())));
+
+            player.sendMessage(new TextComponentString(""));
+
+            // Show faction reputations
+            StoryStateManager manager = StoryStateManager.getInstance();
+            if (manager != null) {
+                PlayerStoryState state = manager.getOrCreateState(player);
+                if (!state.getFactionReputation().isEmpty()) {
+                    player.sendMessage(new TextComponentString(TextFormatting.YELLOW + "Faction Reputations:"));
+                    state.getFactionReputation().forEach((faction, rep) -> {
+                        TextFormatting color = getReputationColor(rep);
+                        player.sendMessage(new TextComponentString(
+                            color + "  " + faction + ": " + rep + " (" + getReputationText(rep) + ")"));
+                    });
+                }
+            }
+
+            player.sendMessage(new TextComponentString(""));
+
+            // Display story context
+            player.sendMessage(new TextComponentString(TextFormatting.YELLOW + "Story State:"));
+            player.sendMessage(new TextComponentString(TextFormatting.WHITE + "  Total Encounters: " +
+                TextFormatting.AQUA + request.getRecentEncounters().size()));
+            player.sendMessage(new TextComponentString(TextFormatting.WHITE + "  Active Threads: " +
+                TextFormatting.AQUA + request.getActiveThreads().size()));
+
+            // Show recent encounters
+            if (!request.getRecentEncounters().isEmpty()) {
+                player.sendMessage(new TextComponentString(TextFormatting.WHITE + "  Recent:"));
+                int count = Math.min(3, request.getRecentEncounters().size());
+                for (int i = 0; i < count; i++) {
+                    ai.torchlite.randomencounters.story.EncounterSummary summary =
+                        request.getRecentEncounters().get(i);
+                    player.sendMessage(new TextComponentString(TextFormatting.GRAY + "    - " +
+                        summary.getEncounterType() + ": " + summary.getBriefDescription()));
+                }
+            }
+
+            player.sendMessage(new TextComponentString(""));
+
+            // Display inventory context
+            if (request.getNotableItems() != null && !request.getNotableItems().isEmpty()) {
+                player.sendMessage(new TextComponentString(TextFormatting.YELLOW + "Notable Items:"));
+                request.getNotableItems().forEach(item ->
+                    player.sendMessage(new TextComponentString(TextFormatting.GRAY + "  - " + item)));
+            }
+
+            player.sendMessage(new TextComponentString(""));
+            player.sendMessage(new TextComponentString(TextFormatting.GRAY + "Tip: This context influences" +
+                " what encounters the AI generates."));
+
+        } catch (Exception e) {
+            player.sendMessage(new TextComponentString(TextFormatting.RED +
+                "Error building context: " + e.getMessage()));
+            RandomEncounters.LOGGER.error("Error showing context", e);
+        }
+    }
+
     @Override
     public List<String> getTabCompletions(MinecraftServer server, ICommandSender sender, String[] args, net.minecraft.util.math.BlockPos targetPos) {
         List<String> completions = new ArrayList<>();
@@ -362,7 +516,10 @@ public class EncounterCommand extends CommandBase {
             completions.add("story");
             completions.add("threads");
             completions.add("history");
+            completions.add("reputation");
+            completions.add("context");
             completions.add("generate");
+            completions.add("clear");
             completions.add("services");
             completions.add("reload");
         }
